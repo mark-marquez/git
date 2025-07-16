@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <zlib.h>
+
 
 int main(int argc, char *argv[]) {
     // Disable output buffering
@@ -38,6 +40,13 @@ int main(int argc, char *argv[]) {
         fclose(headFile);
         
         printf("Initialized git directory\n");
+    } else if ((strcmp(command, "cat-file") == 0)){
+        FILE *headFile = fopen(".git/objects", "r");
+        char buffer[1024];
+        uncompress(buffer, 1024, headFile, ) // STOPPED HERE
+        
+
+
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
