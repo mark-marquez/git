@@ -41,9 +41,15 @@ int main(int argc, char *argv[]) {
         
         printf("Initialized git directory\n");
     } else if ((strcmp(command, "cat-file") == 0)){
+        // type argument
+        const char *arg_one = argv[2];
+
+        // hash argument
+        const char *arg_two = argv[3];
+        
         FILE *headFile = fopen(".git/objects", "r");
         char buffer[1024];
-        uncompress(buffer, 1024, headFile, ) // STOPPED HERE
+        uncompress(buffer, 1024, headFile);
         
 
 
