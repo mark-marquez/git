@@ -46,8 +46,22 @@ int main(int argc, char *argv[]) {
 
         // hash argument
         const char *arg_two = argv[3];
-        
-        FILE *headFile = fopen(".git/objects", "r");
+
+        char *directory = ".git/objects/";
+        char subdirectory[4] = "  /";
+        char filename[39];
+        strncpy(subdirectory, arg_two, 2);
+        strncpy(filename, arg_two + 2, 38);
+        int path_length = strlen(directory) + strlen(subdirectory) + strlen(filename) + 1;
+
+        char path[path_length];
+        strcat(path, directory);
+        strcat(path, subdirectory);
+        strcat(path, filename);
+        path[path_length - 1] = '\0';
+
+        FILE *headFile = fopen(path, "r");
+
         char buffer[1024];
         uncompress(buffer, 1024, headFile);
         
