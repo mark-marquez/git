@@ -41,24 +41,28 @@ int main(int argc, char *argv[]) {
         
         printf("Initialized git directory\n");
     } else if ((strcmp(command, "cat-file") == 0)){
-        // type argument
-        const char *arg_one = argv[2];
+        // // type argument
+        // const char *arg_one = argv[2];
 
-        // hash argument
-        const char *arg_two = argv[3];
+        // // hash argument
+        // const char *arg_two = argv[3];
 
-        char *directory = ".git/objects/";
-        char subdirectory[4] = "  /";
-        char filename[39];
-        strncpy(subdirectory, arg_two, 2);
-        strncpy(filename, arg_two + 2, 38);
-        int path_length = strlen(directory) + strlen(subdirectory) + strlen(filename) + 1;
+        // char *directory = ".git/objects/";
+        // char subdirectory[4] = "  /";
+        // char filename[39];
+        // strncpy(subdirectory, arg_two, 2);
+        // strncpy(filename, arg_two + 2, 38);
+        // int path_length = strlen(directory) + strlen(subdirectory) + strlen(filename) + 1;
 
-        char path[path_length];
-        strcat(path, directory);
-        strcat(path, subdirectory);
-        strcat(path, filename);
-        path[path_length - 1] = '\0';
+        // char path[path_length];
+        // strcat(path, directory);
+        // strcat(path, subdirectory);
+        // strcat(path, filename);
+        // path[path_length - 1] = '\0';
+
+        const char *arg_two = argv[3]; // The object hash
+        char path[256];
+        snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", arg_two, arg_two + 2);
 
         FILE *fp = fopen(path, "rb");
         if (!fp) {
