@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <zlib.h>
+#include <openssl/sha.h>
 
 
 int main(int argc, char *argv[]) {
@@ -107,6 +108,10 @@ int main(int argc, char *argv[]) {
         inflateEnd(&stream);
         free(compressed_data);
 
+    } else if ((strcmp(command, "hash-object") == 0)){
+        
+
+        
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
