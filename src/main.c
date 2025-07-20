@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
 
-            fwrite(buffer + 8, 1, sizeof(buffer) - stream.avail_out, stdout);
+            fwrite(buffer + 8, 1, sizeof(buffer) - stream.avail_out - 8, stdout);
         } while (status != Z_STREAM_END);
 
         inflateEnd(&stream);
