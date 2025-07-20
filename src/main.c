@@ -60,12 +60,48 @@ int main(int argc, char *argv[]) {
         strcat(path, filename);
         path[path_length - 1] = '\0';
 
-        FILE *headFile = fopen(path, "r");
+        FILE *fp = fopen(path, "rb");
+        if (!fp) {
+            perror("fopen");
+            return 1;
+        }
 
-        char buffer[1024];
-        uncompress(buffer, 1024, headFile);
-        
+        // Get file size
+        fseek(fp, 0, SEEK_END);
+        long compressed_size = ftell(fp);
+        rewind(fp);
 
+        // Read compressed data into buffer
+        unsigned char *compressed_data = malloc(compressed_size);
+        fread(compressed_data, 1, compressed_size, fp);
+        fclose(fp);
+
+        // Prepare zlib stream
+        z_stream stream = {0};
+        inflateInit(&stream);
+        stream.next_in = compressed_data;
+        stream.avail_in = compressed_size;
+
+        unsigned char buffer[16384]; // 16KB temp buffer
+        int status;
+
+        do {
+            stream.next_out = buffer;
+            stream.avail_out = sizeof(buffer);
+
+            status = inflate(&stream, Z_NO_FLUSH);
+            if (status == Z_STREAM_ERROR || status == Z_DATA_ERROR || status == Z_MEM_ERROR) {
+                fprintf(stderr, "zlib inflate error: %d\n", status);
+                inflateEnd(&stream);
+                free(compressed_data);
+                return 1;
+            }
+
+            fwrite(buffer, 1, sizeof(buffer) - stream.avail_out, stdout);
+        } while (status != Z_STREAM_END);
+
+        inflateEnd(&stream);
+        free(compressed_data);
 
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
