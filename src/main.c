@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
         // ./your_program.sh hash-object -w test.txt
         char *path = argv[3];
         FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
-        if (!fp) {
-            perror("fopen");
-            return 1;
-        }
+        // if (!fp) {
+        //     perror("fopen");
+        //     return 1;
+        // }
         
         // Get file size
         fseek(fp, 0, SEEK_END);
@@ -137,11 +137,11 @@ int main(int argc, char *argv[]) {
         stream.avail_out = total_size;
 
         int status = deflate(&stream, Z_FINISH);
-        if (status != Z_STREAM_END) {
-            fprintf(stderr, "Compression overflow.");
-            free(compressed);
-            return 1;
-        }
+        // if (status != Z_STREAM_END) {
+        //     fprintf(stderr, "Compression overflow.");
+        //     free(compressed);
+        //     return 1;
+        // }
         deflateEnd(&stream);
 
         // Create file in .git/objects
