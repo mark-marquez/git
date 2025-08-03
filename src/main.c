@@ -7,6 +7,14 @@
 #include <openssl/sha.h>
 
 
+void hash_to_hex(char* hex_buf, const unsigned char *raw_hash) {
+        for (int i = 0; i < 20; i++) {
+            sprintf(hex_buf + (i * 2), "%02x", raw_hash[i]);
+        }
+        hex_buf[40] = '\0';
+}
+
+
 int main(int argc, char *argv[]) {
     // Disable output buffering
     setbuf(stdout, NULL);
@@ -118,13 +126,10 @@ int main(int argc, char *argv[]) {
 
         // Compute hash
         // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
-        unsigned char binary_hash[20];
-        SHA1(blob, total_size, binary_hash);
+        unsigned char raw_hash[20];
+        SHA1(blob, total_size, raw_hash);
         char hex_hash[41];
-        for (int i = 0; i < 20; i++) {
-            sprintf(hex_hash + (i * 2), "%02x", binary_hash[i]);
-        }
-        hex_hash[40] = '\0';
+        hash_to_hex(hex_hash, raw_hash); 
         
         // Compress data using zlib
         z_stream stream = {0};
@@ -162,6 +167,12 @@ int main(int argc, char *argv[]) {
         fclose(new_fp);
         free(blob);
         free(compressed);
+    } else if ((strcmp(command, "ls-tree") == 0)){
+        // Example use: /path/to/your_program.sh ls-tree --name-only <tree_sha>
+
+
+
+
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
