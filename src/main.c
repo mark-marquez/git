@@ -144,6 +144,8 @@ int main(int argc, char *argv[]) {
         FILE *new_fp = fopen(write_path, "wb");
         fwrite(compressed, 1, stream.total_out, new_fp);
 
+        printf(hash);
+
         fclose(fp);
         free(blob);
         free(compressed);
