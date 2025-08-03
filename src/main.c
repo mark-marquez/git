@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
         // ./your_program.sh hash-object -w test.txt
         char *path = argv[3];
         FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
-        // if (!fp) {
-        //     perror("fopen");
-        //     return 1;
-        // }
+        if (!fp) {
+            perror("fopen");
+            return 1;
+        }
         
         // Get file size
         fseek(fp, 0, SEEK_END);
@@ -108,7 +108,6 @@ int main(int argc, char *argv[]) {
         char header[20] = "blob ";
         sprintf(header + strlen(header), "%ld", file_length); 
         size_t header_length = strlen(header);
-        header[header_length] = '\0';
 
         // Create header + content blob object
         size_t total_size = header_length + file_length;
@@ -118,9 +117,13 @@ int main(int argc, char *argv[]) {
 
         // Compute hash
         // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
-        unsigned char hash[41];
-        SHA1(blob, total_size, hash);
-        hash[40] = '\0';
+        unsigned char binary_hash[20];
+        SHA1(blob, total_size, binary_hash);
+        char hex_hash[41];
+        for (int i = 0; i < 20; i++) {
+            sprintf(hex_hash + (i * 2), "%02x", binary_hash[i]);
+        }
+        hex_hash[40] = '\0';
         
         // Compress data using zlib
         z_stream stream = {0};
@@ -131,20 +134,21 @@ int main(int argc, char *argv[]) {
         stream.avail_out = total_size;
 
         int status = deflate(&stream, Z_FINISH);
-        // if (status != Z_STREAM_END) {
-        //     fprintf(stderr, "Compression overflow.");
-        //     free(compressed);
-        //     return 1;
-        // }
+        if (status != Z_STREAM_END) {
+            fprintf(stderr, "Compression overflow.");
+            free(compressed);
+            return 1;
+        }
+        deflateEnd(&stream);
 
         // Create file in .git/objects
         char write_path[256];
-        snprintf(write_path, sizeof(path), ".git/objects/%.2s/%.38s", hash, hash + 2);
+        snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
 
         FILE *new_fp = fopen(write_path, "wb");
         fwrite(compressed, 1, stream.total_out, new_fp);
 
-        printf(hash);
+        printf(hex_hash);
 
         fclose(fp);
         free(blob);
