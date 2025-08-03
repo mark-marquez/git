@@ -110,11 +110,11 @@ int main(int argc, char *argv[]) {
         size_t header_length = strlen(header);
 
         // Create header + content blob object
-        size_t total_size = header_length + file_length;
+        size_t total_size = header_length + 1 + file_length;
         unsigned char *blob = malloc(total_size);
         memcpy(blob, header, header_length);
         blob[header_length] = '\0';
-        fread(blob + header_length, 1, file_length, fp);
+        fread(blob + header_length + 1, 1, file_length, fp);
 
         // Compute hash
         // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
@@ -131,6 +131,8 @@ int main(int argc, char *argv[]) {
         deflateInit(&stream, Z_DEFAULT_COMPRESSION);
 
         unsigned char *compressed = malloc(total_size);
+        stream.next_in = blob;
+        stream.avail_in = total_size;
         stream.next_out = compressed;
         stream.avail_out = total_size;
 
@@ -143,6 +145,10 @@ int main(int argc, char *argv[]) {
         deflateEnd(&stream);
 
         // Create file in .git/objects
+        char dir_path[256];
+        snprintf(dir_path, sizeof(dir_path), ".git/objects/%.2s", hex_hash);
+        mkdir(dir_path, 0755);  // create parent dir if needed
+
         char write_path[256];
         snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
  
