@@ -144,11 +144,12 @@ int main(int argc, char *argv[]) {
         // Create file in .git/objects
         char write_path[256];
         snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
+        mkdir(write_path, 0755);
 
         FILE *new_fp = fopen(write_path, "wb");
         fwrite(compressed, 1, stream.total_out, new_fp);
 
-        printf(hex_hash);
+        printf("%s\n", hex_hash);
 
         fclose(fp);
         free(blob);
