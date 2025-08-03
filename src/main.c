@@ -7,11 +7,29 @@
 #include <openssl/sha.h>
 
 
+long get_file_size(FILE *fp) {
+    fseek(fp, 0, SEEK_END);
+    long compressed_size = ftell(fp);
+    rewind(fp);
+    return compressed_size;
+} 
+
+        // // Read compressed data into buffer
+        // unsigned char *compressed_data = malloc(compressed_size);
+        // fread(compressed_data, 1, compressed_size, fp);
+        // fclose(fp);
+
+
+void build_path(char* full_path, size_t buf_size, const char *object_hash) {
+    snprintf(full_path, buf_size, ".git/objects/%.2s/%.38s", object_hash, object_hash + 2);
+}
+
+
 void hash_to_hex(char* hex_buf, const unsigned char *raw_hash) {
-        for (int i = 0; i < 20; i++) {
-            sprintf(hex_buf + (i * 2), "%02x", raw_hash[i]);
-        }
-        hex_buf[40] = '\0';
+    for (int i = 0; i < 20; i++) {
+        sprintf(hex_buf + (i * 2), "%02x", raw_hash[i]);
+    }
+    hex_buf[40] = '\0';
 }
 
 
@@ -52,7 +70,7 @@ int main(int argc, char *argv[]) {
     } else if ((strcmp(command, "cat-file") == 0)){
         const char *arg_two = argv[3]; // The object hash
         char path[256];
-        snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", arg_two, arg_two + 2);
+        build_path(path, arg_two);
 
         FILE *fp = fopen(path, "rb");
         if (!fp) {
@@ -61,9 +79,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Get file size
-        fseek(fp, 0, SEEK_END);
-        long compressed_size = ftell(fp);
-        rewind(fp);
+        long compressed_size = get_file_size(fp);
 
         // Read compressed data into buffer
         unsigned char *compressed_data = malloc(compressed_size);
@@ -108,9 +124,7 @@ int main(int argc, char *argv[]) {
         // }
         
         // Get file size
-        fseek(fp, 0, SEEK_END);
-        long file_length = ftell(fp);
-        rewind(fp);
+        long file_length = get_file_size(fp);
 
         // Construct header
         char header[20] = "blob ";
@@ -169,6 +183,30 @@ int main(int argc, char *argv[]) {
         free(compressed);
     } else if ((strcmp(command, "ls-tree") == 0)){
         // Example use: /path/to/your_program.sh ls-tree --name-only <tree_sha>
+        const char *tree_sha = argv[3];
+        char hex_hash[41]; 
+        hash_to_hex(hex_hash, tree_sha);
+        
+        char path[256];
+        build_path(path, sizeof(path), hex_hash);
+        
+        FILE *fp = fopen(path, "rb");
+        if (!fp) {
+            perror("fopen");
+            return 1;
+        }
+
+        long file_size = get_file_size(fp);
+
+
+
+
+
+
+
+
+
+
 
 
 
