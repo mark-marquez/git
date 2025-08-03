@@ -9,9 +9,9 @@
 
 long get_file_size(FILE *fp) {
     fseek(fp, 0, SEEK_END);
-    long compressed_size = ftell(fp);
+    long file_size = ftell(fp);
     rewind(fp);
-    return compressed_size;
+    return file_size;
 } 
 
         // // Read compressed data into buffer
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     } else if ((strcmp(command, "cat-file") == 0)){
         const char *arg_two = argv[3]; // The object hash
         char path[256];
-        build_path(path, arg_two);
+        build_path(path, sizeof(path), arg_two);
 
         FILE *fp = fopen(path, "rb");
         if (!fp) {
