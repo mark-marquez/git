@@ -113,6 +113,7 @@ int main(int argc, char *argv[]) {
         size_t total_size = header_length + file_length;
         unsigned char *blob = malloc(total_size);
         memcpy(blob, header, header_length);
+        blob[header_length] = '\0';
         fread(blob + header_length, 1, file_length, fp);
 
         // Compute hash
@@ -144,7 +145,7 @@ int main(int argc, char *argv[]) {
         // Create file in .git/objects
         char write_path[256];
         snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
-        mkdir(write_path, 0755);
+ 
 
         FILE *new_fp = fopen(write_path, "wb");
         fwrite(compressed, 1, stream.total_out, new_fp);
@@ -152,6 +153,7 @@ int main(int argc, char *argv[]) {
         printf("%s\n", hex_hash);
 
         fclose(fp);
+        fclose(new_fp);
         free(blob);
         free(compressed);
     } else {
