@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 
         // Compute hash
         // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
-        char hash[41];
+        unsigned char hash[41];
         SHA1(blob, total_size, hash);
         hash[40] = '\0';
         
