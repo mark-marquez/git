@@ -42,25 +42,6 @@ int main(int argc, char *argv[]) {
         
         printf("Initialized git directory\n");
     } else if ((strcmp(command, "cat-file") == 0)){
-        // // type argument
-        // const char *arg_one = argv[2];
-
-        // // hash argument
-        // const char *arg_two = argv[3];
-
-        // char *directory = ".git/objects/";
-        // char subdirectory[4] = "  /";
-        // char filename[39];
-        // strncpy(subdirectory, arg_two, 2);
-        // strncpy(filename, arg_two + 2, 38);
-        // int path_length = strlen(directory) + strlen(subdirectory) + strlen(filename) + 1;
-
-        // char path[path_length];
-        // strcat(path, directory);
-        // strcat(path, subdirectory);
-        // strcat(path, filename);
-        // path[path_length - 1] = '\0';
-
         const char *arg_two = argv[3]; // The object hash
         char path[256];
         snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", arg_two, arg_two + 2);
@@ -109,9 +90,63 @@ int main(int argc, char *argv[]) {
         free(compressed_data);
 
     } else if ((strcmp(command, "hash-object") == 0)){
+        // Open file
+        // ./your_program.sh hash-object -w test.txt
+        char *path = argv[3];
+        FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
+        // if (!fp) {
+        //     perror("fopen");
+        //     return 1;
+        // }
         
+        // Get file size
+        fseek(fp, 0, SEEK_END);
+        long file_length = ftell(fp);
+        rewind(fp);
 
+        // Construct header
+        char header[20] = "blob ";
+        sprintf(header + strlen(header), "%ld", file_length); 
+        size_t header_length = strlen(header);
+        header[header_length] = '\0';
+
+        // Create header + content blob object
+        size_t total_size = header_length + file_length;
+        unsigned char *blob = malloc(total_size);
+        memcpy(blob, header, header_length);
+        fread(blob + header_length, 1, file_length, fp);
+
+        // Compute hash
+        // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
+        char hash[41];
+        SHA1(blob, total_size, hash);
+        hash[40] = '\0';
         
+        // Compress data using zlib
+        z_stream stream = {0};
+        deflateInit(&stream, Z_DEFAULT_COMPRESSION);
+
+        unsigned char *compressed = malloc(total_size);
+        stream.next_out = compressed;
+        stream.avail_out = total_size;
+
+        int status = deflate(&stream, Z_FINISH);
+        // if (status != Z_STREAM_END) {
+        //     fprintf(stderr, "Compression overflow.");
+        //     free(compressed);
+        //     return 1;
+        // }
+
+        // Create file in .git/objects
+        char write_path[256];
+        snprintf(write_path, sizeof(path), ".git/objects/%.2s/%.38s", hash, hash + 2);
+
+        FILE *new_fp = fopen(write_path, "wb");
+        fwrite(compressed, 1, stream.total_out, new_fp);
+
+        fclose(fp);
+        free(blob);
+        free(compressed);
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
