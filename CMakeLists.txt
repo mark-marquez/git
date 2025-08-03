@@ -6,8 +6,6 @@ file(GLOB_RECURSE SOURCE_FILES src/*.c src/*.h)
 
 set(CMAKE_C_STANDARD 23) # Enable the C23 standard
 
-set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl")
-set(OPENSSL_INCLUDE_DIR "/opt/homebrew/opt/openssl/include")
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
 
