@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
 
         if (null_position) {
             size_t offset = null_position - data + 1;
-            while (offset < sizeof(data)) {
+            while (offset < decompressed_size) {
                 // 1. Parse mode 
                 char mode[7];
                 size_t mode_len = 0;
@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
 
         free(compressed_data);
         free(tree.entries); 
-        return 0; 
+
 
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
