@@ -38,7 +38,6 @@ void decompress_data(char *buffer, char *compressed_data, size_t compressed_size
             fprintf(stderr, "zlib inflate error: %d\n", status);
             inflateEnd(&stream);
             free(compressed_data);
-            return 1;
         }
 
         fwrite(buffer + 8, 1, sizeof(buffer) - stream.avail_out - 8, stdout);
