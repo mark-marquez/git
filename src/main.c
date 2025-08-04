@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
                 // 4. Store the Entry
                 tree.entries = realloc(tree.entries, sizeof(Entry) * tree.count + 1);
                 Entry *entry = &tree.entries[tree.count++]; 
-                strcopy(entry->mode, mode);
+                strcpy(entry->mode, mode);
                 entry->file_name = file_name;
                 memcpy(entry->raw_hash, raw_hash, 20);
             }
@@ -277,11 +277,12 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < tree.count; i++) {
             Entry *entry = (Entry *)(&tree + sizeof(Entry) * i);
             printf("%s\n", entry->file_name);
+            free(entry->file_name);
         }
 
         fclose(fp);
         free(compressed_data);
-
+        free(tree.entries); 
 
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
