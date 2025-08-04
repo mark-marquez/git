@@ -149,10 +149,10 @@ int main(int argc, char *argv[]) {
         // ./your_program.sh hash-object -w test.txt
         char *path = argv[3];
         FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
-        // if (!fp) {
-        //     perror("fopen");
-        //     return 1;
-        // }
+        if (!fp) {
+            perror("fopen");
+            return 1;
+        }
         
         // Get file size
         long file_length = get_file_size(fp);
