@@ -220,7 +220,9 @@ int main(int argc, char *argv[]) {
         // Example use: /path/to/your_program.sh ls-tree --name-only <tree_sha>
         const char *tree_sha = argv[3];
         char hex_hash[41]; 
-        hash_to_hex(hex_hash, tree_sha);
+        // hash_to_hex(hex_hash, tree_sha);
+        strncpy(hex_hash, tree_sha, 40);
+        hex_hash[40] = '\0';
         
         char path[256];
         build_path(path, sizeof(path), hex_hash);
