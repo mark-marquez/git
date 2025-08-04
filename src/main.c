@@ -232,12 +232,12 @@ int main(int argc, char *argv[]) {
         long file_size = get_file_size(fp);
         unsigned char *compressed_data = malloc(file_size);
         fread(compressed_data, 1, file_size, fp);
+        fclose(fp);
 
         unsigned char data[16384]; // 16KB buffer
         int decompressed_size = decompress_data(data, compressed_data, file_size);
         if (decompressed_size < 0) {
             fprintf(stderr, "Failed to decompress data.\n");
-            fclose(fp);
             free(compressed_data);
             return 1;
         }
@@ -284,9 +284,9 @@ int main(int argc, char *argv[]) {
             free(entry->file_name);
         }
 
-        fclose(fp);
         free(compressed_data);
         free(tree.entries); 
+        return 0; 
 
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
