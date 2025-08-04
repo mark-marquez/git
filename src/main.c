@@ -7,6 +7,46 @@
 #include <openssl/sha.h>
 
 
+typedef struct {
+    char mode[7];               // e.g. "100644" is a file
+    char *file_name;            // allocated dynamically
+    unsigned char raw_hash[20];
+} Entry; 
+
+
+typedef struct {
+    Entry *entries;
+    size_t count;
+} Tree;
+
+
+void decompress_data(char *buffer, const char *compressed_data, size_t compressed_size) {
+    // Prepare zlib stream
+    z_stream stream = {0};
+    inflateInit(&stream);
+    stream.next_in = compressed_data;
+    stream.avail_in = compressed_size;
+
+    int status;
+
+    do {
+        stream.next_out = buffer;
+        stream.avail_out = sizeof(buffer);
+
+        status = inflate(&stream, Z_NO_FLUSH);
+        if (status == Z_STREAM_ERROR || status == Z_DATA_ERROR || status == Z_MEM_ERROR) {
+            fprintf(stderr, "zlib inflate error: %d\n", status);
+            inflateEnd(&stream);
+            free(compressed_data);
+            return 1;
+        }
+
+        fwrite(buffer + 8, 1, sizeof(buffer) - stream.avail_out - 8, stdout);
+    } while (status != Z_STREAM_END);
+
+    inflateEnd(&stream);
+}
+
 long get_file_size(FILE *fp) {
     fseek(fp, 0, SEEK_END);
     long file_size = ftell(fp);
@@ -14,10 +54,6 @@ long get_file_size(FILE *fp) {
     return file_size;
 } 
 
-        // // Read compressed data into buffer
-        // unsigned char *compressed_data = malloc(compressed_size);
-        // fread(compressed_data, 1, compressed_size, fp);
-        // fclose(fp);
 
 
 void build_path(char* full_path, size_t buf_size, const char *object_hash) {
@@ -197,18 +233,54 @@ int main(int argc, char *argv[]) {
         }
 
         long file_size = get_file_size(fp);
+        unsigned char *compressed_data = malloc(file_size);
+        fread(compressed_data, 1, file_size, fp);
 
+        unsigned char data[16384]; // 16KB buffer
+        decompress_data(data, compressed_data, file_size);
 
+        Tree tree = { NULL, 0 };
+        unsigned char *null_position = memchr(data, '\0', sizeof(data) - 1);
 
+        if (null_position) {
+            size_t offset = null_position - data + 1;
+            while (offset < sizeof(data)) {
+                // 1. Parse mode 
+                char mode[7];
+                size_t mode_len = 0;
+                while (data[offset] != ' ') mode[mode_len++] = data[offset++];
+                mode[mode_len] = '\0';
+                offset++; //skip the space
 
+                // 2. Parse filename
+                size_t name_len = 0;
+                while (data[offset + name_len] != '\0') name_len++;
+                char *file_name = malloc(name_len + 1);
+                memcpy(file_name, &data[offset], name_len);
+                file_name[name_len] = '\0';
+                offset += name_len + 1; // skip file name & null terminator
 
+                // 3. Parse raw SHA1
+                unsigned char raw_hash[20];
+                memcpy(raw_hash, &data[offset], 20);
+                offset += 20; // skip the saved raw_hash
 
+                // 4. Store the Entry
+                tree.entries = realloc(tree.entries, sizeof(Entry) * tree.count + 1);
+                Entry *entry = &tree.entries[tree.count++]; 
+                strcopy(entry->mode, mode);
+                entry->file_name = file_name;
+                memcpy(entry->raw_hash, raw_hash, 20);
+            }
+        } 
 
+        for (int i = 0; i < tree.count; i++) {
+            Entry *entry = (Entry *)(&tree + sizeof(Entry) * i);
+            printf("%s\n", entry->file_name);
+        }
 
-
-
-
-
+        fclose(fp);
+        free(compressed_data);
 
 
     } else {
