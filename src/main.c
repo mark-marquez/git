@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
                 offset += 20; // skip the saved raw_hash
 
                 // 4. Store the Entry
-                tree.entries = realloc(tree.entries, sizeof(Entry) * tree.count + 1);
+                tree.entries = realloc(tree.entries, sizeof(Entry) * (tree.count + 1));
                 Entry *entry = &tree.entries[tree.count++]; 
                 strcpy(entry->mode, mode);
                 entry->file_name = file_name;
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
         } 
 
         for (int i = 0; i < tree.count; i++) {
-            Entry *entry = (Entry *)(&tree + sizeof(Entry) * i);
+            Entry *entry = &tree.entries[i];
             printf("%s\n", entry->file_name);
             free(entry->file_name);
         }
