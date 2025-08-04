@@ -187,11 +187,11 @@ int main(int argc, char *argv[]) {
         stream.avail_out = total_size;
 
         int status = deflate(&stream, Z_FINISH);
-        // if (status != Z_STREAM_END) {
-        //     fprintf(stderr, "Compression overflow.");
-        //     free(compressed);
-        //     return 1;
-        // }
+        if (status != Z_STREAM_END) {
+            fprintf(stderr, "Compression overflow.");
+            free(compressed);
+            return 1;
+        }
         deflateEnd(&stream);
 
         // Create file in .git/objects
