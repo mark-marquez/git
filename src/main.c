@@ -20,31 +20,27 @@ typedef struct {
 } Tree;
 
 
-void decompress_data(char *buffer, char *compressed_data, size_t compressed_size) {
-    // Prepare zlib stream
+int decompress_data(unsigned char *buffer, const unsigned char *compressed_data, size_t compressed_size) {
     z_stream stream = {0};
-    inflateInit(&stream);
-    stream.next_in = compressed_data;
+    stream.next_in = (unsigned char *)compressed_data;
     stream.avail_in = compressed_size;
 
-    int status;
+    stream.next_out = buffer;
+    stream.avail_out = 16384;
 
-    do {
-        stream.next_out = buffer;
-        stream.avail_out = sizeof(buffer);
+    if (inflateInit(&stream) != Z_OK) return -1;
 
-        status = inflate(&stream, Z_NO_FLUSH);
-        if (status == Z_STREAM_ERROR || status == Z_DATA_ERROR || status == Z_MEM_ERROR) {
-            fprintf(stderr, "zlib inflate error: %d\n", status);
-            inflateEnd(&stream);
-            free(compressed_data);
-        }
-
-        fwrite(buffer + 8, 1, sizeof(buffer) - stream.avail_out - 8, stdout);
-    } while (status != Z_STREAM_END);
+    int status = inflate(&stream, Z_FINISH);
+    if (status != Z_STREAM_END) {
+        fprintf(stderr, "inflate error: %d\n", status);
+        inflateEnd(&stream);
+        return -1;
+    }
 
     inflateEnd(&stream);
+    return stream.total_out;  // return decompressed length
 }
+
 
 long get_file_size(FILE *fp) {
     fseek(fp, 0, SEEK_END);
@@ -238,7 +234,14 @@ int main(int argc, char *argv[]) {
         fread(compressed_data, 1, file_size, fp);
 
         unsigned char data[16384]; // 16KB buffer
-        decompress_data(data, compressed_data, file_size);
+        int decompressed_size = decompress_data(data, compressed_data, file_size);
+        if (decompressed_size < 0) {
+            fprintf(stderr, "Failed to decompress data.\n");
+            fclose(fp);
+            free(compressed_data);
+            return 1;
+        }
+
 
         Tree tree = { NULL, 0 };
         unsigned char *null_position = memchr(data, '\0', sizeof(data) - 1);
