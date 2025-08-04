@@ -20,7 +20,7 @@ typedef struct {
 } Tree;
 
 
-void decompress_data(char *buffer, const char *compressed_data, size_t compressed_size) {
+void decompress_data(char *buffer, char *compressed_data, size_t compressed_size) {
     // Prepare zlib stream
     z_stream stream = {0};
     inflateInit(&stream);
