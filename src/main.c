@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <zlib.h>
 #include <openssl/sha.h>
+#include <dirent.h>
 
 
 typedef struct {
@@ -19,6 +20,57 @@ typedef struct {
     size_t count;
 } Tree;
 
+void get_directory_entries(DIR *directory, Tree *tree) {
+    struct dirent *entry;
+
+    while ((entry = readdir(directory)) != NULL) {
+        char mode[7];
+        char *name; 
+
+        if (entry->d_type == DT_DIR) {
+            // directory
+            strcpy(mode, "40000");
+            mode[5] = '\0'; 
+        } else if (entry->d_type == DT_REG) {
+            // file
+            strcpy(mode, "100644");
+            mode[6] = '\0'; 
+        }
+
+    }
+
+    // size_t offset = null_position - data + 1;
+    // while (offset < decompressed_size) {
+    //     // 1. Parse mode 
+    //     char mode[7];
+    //     size_t mode_len = 0;
+    //     while (data[offset] != ' ') mode[mode_len++] = data[offset++];
+    //     mode[mode_len] = '\0';
+    //     offset++; //skip the space
+
+    //     // 2. Parse filename
+    //     size_t name_len = 0;
+    //     while (data[offset + name_len] != '\0') name_len++;
+    //     char *file_name = malloc(name_len + 1);
+    //     memcpy(file_name, &data[offset], name_len);
+    //     file_name[name_len] = '\0';
+    //     offset += name_len + 1; // skip file name & null terminator
+
+    //     // 3. Parse raw SHA1
+    //     unsigned char raw_hash[20];
+    //     memcpy(raw_hash, &data[offset], 20);
+    //     offset += 20; // skip the saved raw_hash
+
+    //     // 4. Store the Entry
+    //     tree.entries = realloc(tree.entries, sizeof(Entry) * (tree.count + 1));
+    //     Entry *entry = &tree.entries[tree.count++]; 
+    //     strcpy(entry->mode, mode);
+    //     entry->file_name = file_name;
+    //     memcpy(entry->raw_hash, raw_hash, 20);
+    // }
+
+
+}
 
 int decompress_data(unsigned char *buffer, const unsigned char *compressed_data, size_t compressed_size) {
     z_stream stream = {0};
@@ -288,6 +340,35 @@ int main(int argc, char *argv[]) {
         free(tree.entries); 
 
 
+    } else if ((strcmp(command, "write-tree") == 0)){
+        // Example use: /path/to/your_program.sh write-tree
+        // data_type array_name[size];
+
+        // Get list of files & directories in current working directory
+        DIR *current_directory = opendir(".");
+        if (!current_directory) {
+            perror("Could not open current directory.");
+            return 1;
+        }
+
+        Tree tree = { malloc(0), 0 };
+
+
+        get_directory_entries(current_directory, &tree); 
+
+        // typedef struct {
+        //     char mode[7];               // e.g. "100644" is a file
+        //     char *file_name;            // allocated dynamically
+        //     unsigned char raw_hash[20];
+        // } Entry; 
+
+
+        // typedef struct {
+        //     Entry *entries;
+        //     size_t count;
+        // } Tree;
+
+      
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
