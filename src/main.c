@@ -92,6 +92,8 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
         p += 20;
     }
 
+    fclose(dir);
+    
     // 2) hash (uncompressed tree object data)
     unsigned char sha[20];
     SHA1(tree_data, buf_size, sha);
@@ -111,7 +113,8 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     if (st != Z_STREAM_END) {
         fprintf(stderr, "deflate error: %d (in=%zu, out cap=%lu, out=%lu)\n",
                 st, (size_t)buf_size, (unsigned long)cap, (unsigned long)s.total_out);
-        // don't free the same buffer twice anywhere else; just return here.
+        free(tree_data);
+        free(zbuf);
         return;
     }
 
@@ -129,6 +132,8 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     FILE *fp = fopen(path, "wb");
     fwrite(zbuf, 1, zlen, fp);
     fclose(fp);
+    free(tree_data);
+    free(zbuf);
 }
 
 int decompress_data(unsigned char *buffer, const unsigned char *compressed_data, size_t compressed_size) {
