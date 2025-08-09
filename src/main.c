@@ -92,8 +92,8 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
         p += 20;
     }
 
-    fclose(dir);
-    
+    closedir(dir);
+
     // 2) hash (uncompressed tree object data)
     unsigned char sha[20];
     SHA1(tree_data, buf_size, sha);
