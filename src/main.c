@@ -23,8 +23,8 @@ typedef struct {
 unsigned char *hash_blob_object(char *file_name, char* flag);
 void hash_to_hex(char* hex_buf, const unsigned char *raw_hash);
 
-// Caller provides a 20-byte buffer for the resulting hash
-void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash[41]) {
+
+void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash[20]) {
     DIR *dir = opendir(dirpath);
     if (!dir) { perror("opendir"); return; }
 
@@ -40,12 +40,12 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
         char mode[7];
         unsigned char raw_hash[20];
 
-        if (dent->d_type == DT_DIR) { // FILE
+        if (dent->d_type == DT_REG) { // FILE
             strcpy(mode, "100644");
             unsigned char* hash = hash_blob_object(file_name, ""); // flag is not "w"
             memcpy(raw_hash, hash, 20);
             free(hash);
-        } else if (dent->d_type == DT_REG) { // DIRECTORY
+        } else if (dent->d_type == DT_DIR) { // DIRECTORY
             strcpy(mode, "40000"); 
             
             char subpath[PATH_MAX];
@@ -68,10 +68,10 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
 
 
     size_t tree_size = 0;
-    Entry *entry = tree->entries;
     for (int i = 0; i < tree->count; i++) {
-        tree_size += strlen(entry->mode) + 1;   // mode + space
-        tree_size += strlen(entry->file_name) + 1;  // name + null
+        Entry *e = &tree->entries[i];
+        tree_size += strlen(e->mode) + 1;   // mode + space
+        tree_size += strlen(e->file_name) + 1;  // name + null
         tree_size += 20;                        // raw SHA
     }
 
@@ -110,7 +110,7 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
 
     // 5) write to .git/objects/xx/yyyy...
     char directory[64], path[128];
-    snprintf(directory,  sizeof(dir), ".git/objects/%.2s", tree_hash);
+    snprintf(directory,  sizeof(directory), ".git/objects/%.2s", tree_hash);
     mkdir(directory, 0755);
     snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", tree_hash, tree_hash+2);
     FILE *fp = fopen(path, "wb");
@@ -403,9 +403,12 @@ int main(int argc, char *argv[]) {
     } else if ((strcmp(command, "write-tree") == 0)){
         // Example use: /path/to/your_program.sh write-tree
         Tree tree = { NULL, 0 };
-        char tree_hash[41];
+        char tree_hash[20];
         create_tree_object(".", &tree, tree_hash); 
-        printf("%s\n", tree_hash);
+        for (int i = 0; i < 20; i++) {
+            printf("%02x", tree_hash[i]);
+        }
+        printf("\n");
 
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
