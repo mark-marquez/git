@@ -405,6 +405,7 @@ int main(int argc, char *argv[]) {
         // char tree_hash[41];
         // create_tree_object(".", &tree, tree_hash); 
         // printf("%s\n", tree_hash);
+        
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
