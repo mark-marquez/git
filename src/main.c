@@ -166,7 +166,7 @@ unsigned char *hash_blob_object(char *file_name, char* flag) {
     FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
     if (!fp) {
         perror("fopen");
-        return 1;
+        //return 1;
     }
     
     // Get file size
