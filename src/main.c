@@ -21,6 +21,7 @@ typedef struct {
 } Tree;
 
 unsigned char *hash_blob_object(char *file_name, char* flag);
+void hash_to_hex(char* hex_buf, const unsigned char *raw_hash);
 
 // Caller provides a 20-byte buffer for the resulting hash
 void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash[41]) {
