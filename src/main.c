@@ -42,6 +42,8 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
 
         if (dent->d_type == DT_REG) { // FILE
             strcpy(mode, "100644");
+            char subpath[PATH_MAX];
+            snprintf(subpath, sizeof(subpath), "%s/%s", dirpath, dent->d_name);
             unsigned char* hash = hash_blob_object(file_name, ""); // flag is not "w"
             memcpy(raw_hash, hash, 20);
             free(hash);
@@ -94,7 +96,9 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     unsigned char sha[20];
     SHA1(tree_data, buf_size, sha);
 
-    hash_to_hex(tree_hash, sha);
+    // the return hash buffer
+    memcpy(tree_hash, sha, 20);
+
 
     // 4) compress
     uLongf cap = compressBound(buf_size);
@@ -107,12 +111,14 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     deflateEnd(&s);
     size_t zlen = s.total_out;
 
+    char hex[41];
+    hash_to_hex(hex, sha);
 
     // 5) write to .git/objects/xx/yyyy...
     char directory[64], path[128];
-    snprintf(directory,  sizeof(directory), ".git/objects/%.2s", tree_hash);
+    snprintf(directory,  sizeof(directory), ".git/objects/%.2s", hex);
     mkdir(directory, 0755);
-    snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", tree_hash, tree_hash+2);
+    snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", hex, hex + 2);
     FILE *fp = fopen(path, "wb");
     fwrite(zbuf, 1, zlen, fp);
     fclose(fp);
