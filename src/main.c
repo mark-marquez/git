@@ -24,6 +24,12 @@ unsigned char *hash_blob_object(char *file_name, char* flag);
 void hash_to_hex(char* hex_buf, const unsigned char *raw_hash);
 
 
+// Sort tree entries by filename (required for Git-canonical tree hash)
+static int cmp_entry_by_name(const void *a, const void *b) {
+    const Entry *ea = (const Entry *)a, *eb = (const Entry *)b;
+    return strcmp(ea->file_name, eb->file_name);
+}
+
 void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash[20]) {
     DIR *dir = opendir(dirpath);
     if (!dir) { perror("opendir"); return; }
@@ -32,109 +38,142 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     while ((dent = readdir(dir)) != NULL) {
         if (strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0 || strcmp(dent->d_name, ".git") == 0)
             continue;
-        
+
+        char subpath[PATH_MAX];
+        snprintf(subpath, sizeof(subpath), "%s/%s", dirpath, dent->d_name);
+
         char *file_name = malloc(strlen(dent->d_name) + 1);
         strcpy(file_name, dent->d_name);
 
-        // Depend on whether entry is directory or file
+        // Decide mode and raw_hash based on entry type
         char mode[7];
         unsigned char raw_hash[20];
 
-        if (dent->d_type == DT_REG) { // FILE
+        if (dent->d_type == DT_REG) { // regular file
             strcpy(mode, "100644");
-            char subpath[PATH_MAX];
-            snprintf(subpath, sizeof(subpath), "%s/%s", dirpath, dent->d_name);
-            unsigned char* hash = hash_blob_object(subpath, ""); // flag is not "w"
+            unsigned char *hash = hash_blob_object(subpath, ""); // assuming this both hashes and writes as needed
             memcpy(raw_hash, hash, 20);
             free(hash);
-        } else if (dent->d_type == DT_DIR) { // DIRECTORY
-            strcpy(mode, "40000"); 
-            
-            char subpath[PATH_MAX];
-            snprintf(subpath, sizeof(subpath), "%s/%s", dirpath, dent->d_name);
-            Tree new_tree = { NULL, 0 };
+        } else if (dent->d_type == DT_DIR) { // directory
+            strcpy(mode, "40000");
+            Tree new_tree = (Tree){ NULL, 0 };
             unsigned char new_tree_hash[20];
-            create_tree_object(subpath, &new_tree, new_tree_hash); 
+            create_tree_object(subpath, &new_tree, new_tree_hash);
             memcpy(raw_hash, new_tree_hash, 20);
+        } else if (dent->d_type == DT_UNKNOWN) {
+            // Some filesystems don't fill d_type; fall back to lstat
+            struct stat st;
+            if (lstat(subpath, &st) == -1) { perror("lstat"); free(file_name); continue; }
+            if (S_ISREG(st.st_mode)) {
+                strcpy(mode, "100644");
+                unsigned char *hash = hash_blob_object(subpath, "");
+                memcpy(raw_hash, hash, 20);
+                free(hash);
+            } else if (S_ISDIR(st.st_mode)) {
+                strcpy(mode, "40000");
+                Tree new_tree = (Tree){ NULL, 0 };
+                unsigned char new_tree_hash[20];
+                create_tree_object(subpath, &new_tree, new_tree_hash);
+                memcpy(raw_hash, new_tree_hash, 20);
+            } else {
+                free(file_name);
+                continue; // skip other types (symlinks, devices, etc.)
+            }
         } else {
-            continue; 
+            free(file_name);
+            continue; // skip non-regular/non-directory types
         }
 
-        // 4. Store the Entry
+        // Store the Entry
         tree->entries = realloc(tree->entries, sizeof(Entry) * (tree->count + 1));
-        Entry *entry = &tree->entries[tree->count++]; 
+        Entry *entry = &tree->entries[tree->count++];
         strcpy(entry->mode, mode);
         entry->file_name = file_name;
         memcpy(entry->raw_hash, raw_hash, 20);
     }
 
+    closedir(dir);
 
+    // Canonicalize order: sort entries by filename before hashing/writing
+    if (tree->count > 1) {
+        qsort(tree->entries, tree->count, sizeof(Entry), cmp_entry_by_name);
+    }
+
+    // Compute tree payload size
     size_t tree_size = 0;
     for (int i = 0; i < tree->count; i++) {
         Entry *e = &tree->entries[i];
-        tree_size += strlen(e->mode) + 1;   // mode + space
-        tree_size += strlen(e->file_name) + 1;  // name + null
-        tree_size += 20;                        // raw SHA
+        tree_size += strlen(e->mode) + 1;    // "<mode><space>"
+        tree_size += strlen(e->file_name) + 1; // "<name><NUL>"
+        tree_size += 20;                       // 20-byte raw SHA
     }
 
+    // "tree <size>\0" header + payload
     char header[64];
-    int header_len = sprintf(header, "tree %zu", tree_size) + 1; // +1 for \0
-    
+    int header_len = sprintf(header, "tree %zu", tree_size) + 1; // +1 for '\0'
     size_t buf_size = header_len + tree_size;
+
     unsigned char *tree_data = malloc(buf_size);
     memcpy(tree_data, header, header_len);
 
+    // Serialize entries
     unsigned char *p = tree_data + header_len;
     for (int i = 0; i < tree->count; i++) {
         Entry *e = &tree->entries[i];
-        p += sprintf((char *)p, "%s %s", e->mode, e->file_name) + 1;
+        p += sprintf((char *)p, "%s %s", e->mode, e->file_name) + 1; // includes the trailing NUL
         memcpy(p, e->raw_hash, 20);
         p += 20;
     }
 
-    closedir(dir);
-
-    // 2) hash (uncompressed tree object data)
+    // Hash the uncompressed tree object
     unsigned char sha[20];
     SHA1(tree_data, buf_size, sha);
-
-    // the return hash buffer
     memcpy(tree_hash, sha, 20);
 
-
-    // 4) compress
+    // Compress to zlib format (use compressBound to avoid overflow)
     uLongf cap = compressBound(buf_size);
     unsigned char *zbuf = malloc(cap);
-    z_stream s = {0};
-    deflateInit(&s, Z_DEFAULT_COMPRESSION);
-    s.next_in  = tree_data; s.avail_in  = buf_size;
-    s.next_out = zbuf;      s.avail_out = cap;
-    int st = deflate(&s, Z_FINISH);
-    if (st != Z_STREAM_END) {
-        fprintf(stderr, "deflate error: %d (in=%zu, out cap=%lu, out=%lu)\n",
-                st, (size_t)buf_size, (unsigned long)cap, (unsigned long)s.total_out);
+    z_stream s = (z_stream){0};
+    if (deflateInit(&s, Z_DEFAULT_COMPRESSION) != Z_OK) {
+        fprintf(stderr, "deflateInit failed\n");
         free(tree_data);
         free(zbuf);
         return;
     }
 
-    deflateEnd(&s);
-    size_t zlen = s.total_out;
+    s.next_in  = tree_data; s.avail_in  = (uInt)buf_size;
+    s.next_out = zbuf;      s.avail_out = cap;
 
+    int st = deflate(&s, Z_FINISH);
+    if (st != Z_STREAM_END) {
+        fprintf(stderr, "deflate error: %d (in=%zu, out cap=%lu, out=%lu)\n",
+                st, (size_t)buf_size, (unsigned long)cap, (unsigned long)s.total_out);
+        deflateEnd(&s);
+        free(tree_data);
+        free(zbuf);
+        return;
+    }
+    size_t zlen = s.total_out;
+    deflateEnd(&s);
+
+    // Write to .git/objects/xx/yyyy...
     char hex[41];
     hash_to_hex(hex, sha);
 
-    // 5) write to .git/objects/xx/yyyy...
     char directory[64], path[128];
     snprintf(directory,  sizeof(directory), ".git/objects/%.2s", hex);
     mkdir(directory, 0755);
     snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", hex, hex + 2);
+
     FILE *fp = fopen(path, "wb");
+    if (!fp) { perror("fopen"); free(tree_data); free(zbuf); return; }
     fwrite(zbuf, 1, zlen, fp);
     fclose(fp);
+
     free(tree_data);
     free(zbuf);
 }
+
 
 int decompress_data(unsigned char *buffer, const unsigned char *compressed_data, size_t compressed_size) {
     z_stream stream = {0};
