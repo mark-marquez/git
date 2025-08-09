@@ -220,78 +220,101 @@ void hash_to_hex(char* hex_buf, const unsigned char *raw_hash) {
 
 
 unsigned char *hash_blob_object(char *file_name, char* flag) {
-    char *path = file_name;
-    FILE *fp = fopen(path, "rb"); // need by to read binary data across OS's
-    if (!fp) {
-        perror("fopen");
-        //return 1;
-    }
-    
-    // Get file size
+    FILE *fp = NULL, *new_fp = NULL;
+    unsigned char *blob = NULL, *compressed = NULL, *hash = NULL;
+    size_t total_size = 0;
+    uLongf comp_cap = 0;
+    size_t zlen = 0;
+
+    // 1) Open input
+    fp = fopen(file_name, "rb");
+    if (!fp) { perror("fopen"); goto cleanup; }
+
     long file_length = get_file_size(fp);
+    if (file_length < 0) { fprintf(stderr, "get_file_size failed\n"); goto cleanup; }
 
-    // Construct header
-    char header[20] = "blob ";
-    sprintf(header + strlen(header), "%ld", file_length); 
-    size_t header_length = strlen(header);
+    // 2) Build "blob <len>\0" header + content
+    char header[64];
+    size_t header_length = (size_t)snprintf(header, sizeof(header), "blob %ld", file_length);
+    if (header_length + 1 > sizeof(header)) { fprintf(stderr, "header overflow\n"); goto cleanup; }
 
-    // Create header + content blob object
-    size_t total_size = header_length + 1 + file_length;
-    unsigned char *blob = malloc(total_size);
+    total_size = header_length + 1 + (size_t)file_length;
+    blob = (unsigned char *)malloc(total_size);
+    if (!blob) { perror("malloc"); goto cleanup; }
+
     memcpy(blob, header, header_length);
     blob[header_length] = '\0';
-    fread(blob + header_length + 1, 1, file_length, fp);
 
-    // Compute hash
-    // unsigned char *SHA1(const unsigned char *data, size_t count, unsigned char *md_buf);
+    if (fread(blob + header_length + 1, 1, (size_t)file_length, fp) != (size_t)file_length) {
+        perror("fread");
+        goto cleanup;
+    }
+
+    // 3) SHA1 of uncompressed object
     unsigned char raw_hash[20];
     SHA1(blob, total_size, raw_hash);
     char hex_hash[41];
-    hash_to_hex(hex_hash, raw_hash); 
-    
-    // Compress data using zlib
-    z_stream stream = {0};
-    deflateInit(&stream, Z_DEFAULT_COMPRESSION);
+    hash_to_hex(hex_hash, raw_hash);
 
-    unsigned char *compressed = malloc(total_size);
-    stream.next_in = blob;
-    stream.avail_in = total_size;
+    // 4) Compress (use compressBound to avoid overflow)
+    z_stream stream = (z_stream){0};
+    if (deflateInit(&stream, Z_DEFAULT_COMPRESSION) != Z_OK) {
+        fprintf(stderr, "deflateInit failed\n");
+        goto cleanup;
+    }
+
+    comp_cap = compressBound(total_size);
+    compressed = (unsigned char *)malloc(comp_cap);
+    if (!compressed) { perror("malloc"); deflateEnd(&stream); goto cleanup; }
+
+    stream.next_in  = blob;
+    stream.avail_in = (uInt)total_size;
     stream.next_out = compressed;
-    stream.avail_out = total_size;
+    stream.avail_out = comp_cap;
 
     int status = deflate(&stream, Z_FINISH);
     if (status != Z_STREAM_END) {
-        fprintf(stderr, "Compression overflow.");
-        free(compressed);
-        //return 1;
+        fprintf(stderr, "Compression overflow.\n");
+        deflateEnd(&stream);
+        goto cleanup;  // don't touch/free 'compressed' again below if we bail here
     }
+    zlen = (size_t)stream.total_out;
     deflateEnd(&stream);
 
-    // Create file in .git/objects
+    // 5) Write .git/objects/xx/yyyy...
     char dir_path[256];
     snprintf(dir_path, sizeof(dir_path), ".git/objects/%.2s", hex_hash);
-    mkdir(dir_path, 0755);  // create parent dir if needed
+    // mkdir may already exist; that's fine
+    (void)mkdir(dir_path, 0755);
 
     char write_path[256];
     snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
 
+    new_fp = fopen(write_path, "wb");
+    if (!new_fp) { perror("fopen"); goto cleanup; }
 
-    FILE *new_fp = fopen(write_path, "wb");
-    fwrite(compressed, 1, stream.total_out, new_fp);
+    if (fwrite(compressed, 1, zlen, new_fp) != zlen) {
+        perror("fwrite");
+        goto cleanup;
+    }
 
-    if (strcmp(flag, "w") == 0) {
+    if (flag && strcmp(flag, "w") == 0) {
         printf("%s\n", hex_hash);
     }
 
-    fclose(fp);
-    fclose(new_fp);
-    free(blob);
-    free(compressed);
-
-    unsigned char *hash = malloc(20);
+    // 6) Success: duplicate hash for caller ownership
+    hash = (unsigned char *)malloc(20);
+    if (!hash) { perror("malloc"); goto cleanup; }
     memcpy(hash, raw_hash, 20);
-    return hash;
+
+cleanup:
+    if (fp) fclose(fp);
+    if (new_fp) fclose(new_fp);
+    if (blob) free(blob);
+    if (compressed) free(compressed);
+    return hash; // may be NULL if something failed
 }
+
 
 
 int main(int argc, char *argv[]) {
