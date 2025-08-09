@@ -44,7 +44,7 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
             strcpy(mode, "100644");
             char subpath[PATH_MAX];
             snprintf(subpath, sizeof(subpath), "%s/%s", dirpath, dent->d_name);
-            unsigned char* hash = hash_blob_object(file_name, ""); // flag is not "w"
+            unsigned char* hash = hash_blob_object(subpath, ""); // flag is not "w"
             memcpy(raw_hash, hash, 20);
             free(hash);
         } else if (dent->d_type == DT_DIR) { // DIRECTORY
@@ -409,7 +409,7 @@ int main(int argc, char *argv[]) {
     } else if ((strcmp(command, "write-tree") == 0)){
         // Example use: /path/to/your_program.sh write-tree
         Tree tree = { NULL, 0 };
-        char tree_hash[20];
+        unsigned char tree_hash[20];
         create_tree_object(".", &tree, tree_hash); 
         for (int i = 0; i < 20; i++) {
             printf("%02x", tree_hash[i]);
