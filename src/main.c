@@ -108,9 +108,9 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
 
 
     // 5) write to .git/objects/xx/yyyy...
-    char dir[64], path[128];
-    snprintf(dir,  sizeof(dir), ".git/objects/%.2s", tree_hash);
-    mkdir(dir, 0755);
+    char directory[64], path[128];
+    snprintf(directory,  sizeof(dir), ".git/objects/%.2s", tree_hash);
+    mkdir(directory, 0755);
     snprintf(path, sizeof(path), ".git/objects/%.2s/%.38s", tree_hash, tree_hash+2);
     FILE *fp = fopen(path, "wb");
     fwrite(zbuf, 1, zlen, fp);
