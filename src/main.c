@@ -108,7 +108,6 @@ void create_tree_object(const char *dirpath, Tree *tree, unsigned char tree_hash
     s.next_in  = tree_data; s.avail_in  = buf_size;
     s.next_out = zbuf;      s.avail_out = cap;
     int st = deflate(&s, Z_FINISH);
-    int st = deflate(&s, Z_FINISH);
     if (st != Z_STREAM_END) {
         fprintf(stderr, "deflate error: %d (in=%zu, out cap=%lu, out=%lu)\n",
                 st, (size_t)buf_size, (unsigned long)cap, (unsigned long)s.total_out);
