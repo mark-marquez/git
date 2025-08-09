@@ -205,7 +205,7 @@ unsigned char *hash_blob_object(char *file_name, char* flag) {
     if (status != Z_STREAM_END) {
         fprintf(stderr, "Compression overflow.");
         free(compressed);
-        return 1;
+        //return 1;
     }
     deflateEnd(&stream);
 
