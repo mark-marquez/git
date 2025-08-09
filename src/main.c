@@ -400,11 +400,11 @@ int main(int argc, char *argv[]) {
 
 
     } else if ((strcmp(command, "write-tree") == 0)){
-        // Example use: /path/to/your_program.sh write-tree
-        Tree tree = { NULL, 0 };
-        char tree_hash[41];
-        create_tree_object(".", &tree, tree_hash); 
-        printf("%s\n", tree_hash);
+        // // Example use: /path/to/your_program.sh write-tree
+        // Tree tree = { NULL, 0 };
+        // char tree_hash[41];
+        // create_tree_object(".", &tree, tree_hash); 
+        // printf("%s\n", tree_hash);
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
