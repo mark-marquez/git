@@ -6,6 +6,7 @@
 #include <zlib.h>
 #include <openssl/sha.h>
 #include <dirent.h>
+#include <time.h>
 
 
 typedef struct {
@@ -490,6 +491,90 @@ int main(int argc, char *argv[]) {
         }
         printf("\n");
 
+    } else if ((strcmp(command, "commit-tree") == 0)) {
+        // Surprisingly easier than previous two. It's just like hash-object but with a different type in header and body following the commit template seen with git cat-file -p HEAD (shows head commit).
+        // new -p old
+        // $ git commit-tree 5b825dc642cb6eb9a060e54bf8d69288fbee4904 -p 3b18e512dba79e4c8300dd08aeb37f8e728b8dad -m "Second commit"
+        // $ ./your_program.sh commit-tree <tree_sha> -p <commit_sha> -m <message>
+        char *tree_sha = argv[2];
+        char *parent_sha = argv[4];
+        char *message = argv[6];
+
+        char *tree_label = "tree ";
+        char *parent_label = "parent ";
+
+        char *author = "author Zachary Marquez <his_email@stanford.edu> ";
+        char *committer = "committer Mark Marquez <my_email@stanford.edu> ";
+
+        time_t now = time(NULL); // seconds since epoch
+        struct tm local_tm; 
+        localtime_r(&now, &local_tm);
+        long offset_seconds = local_tm.tm_gmtoff;
+        int hours = (int)(offset_seconds / 3600);
+        int minutes = (int)(labs(offset_seconds) % 3600) / 60;
+        char time_str[64];
+        snprintf(time_str, sizeof(time_str), "%ld %+03d%02d", (long)now, hours, minutes);
+
+        size_t content_len= strlen(tree_label) + strlen(tree_sha) + 1;  // + 1 for newline character
+        content_len += strlen(parent_label) + strlen(parent_sha) + 1; // + 1 for newline character
+        content_len += strlen(author) + strlen(time_str) + 1;         // + 1 for newline character
+        content_len += strlen(committer) + strlen(time_str) + 1;      // + 1 for newline character
+        content_len += 1;                                             // + 1 for newline character
+        content_len += strlen(message) + 1;                           // + 1 for newline character
+
+        char header[64] = "commit ";
+        snprintf(header + strlen(header), sizeof(header) - strlen(header), "%zu", content_len); 
+        size_t header_len = strlen(header);
+
+        size_t blob_len = header_len + 1 + content_len;
+        unsigned char *blob = malloc(blob_len);
+
+        // Copy header + null separator
+        memcpy(blob, header, header_len);
+        blob[header_len] = '\0'; // Required null between header and content
+
+        unsigned char *p = blob + header_len + 1;
+        p += sprintf((char *)p, "%s%s\n", tree_label, tree_sha);
+        p += sprintf((char *)p, "%s%s\n", parent_label, parent_sha);
+        p += sprintf((char *)p, "%s%s\n", author, time_str);
+        p += sprintf((char *)p, "%s%s\n", committer, time_str);
+        *p++ = '\n'; // blank line
+        p += sprintf((char *)p, "%s\n", message);
+
+        // Hash the uncompressed commit object
+        unsigned char raw_hash[20];
+        SHA1(blob, blob_len, raw_hash);
+        char hex_hash[41];
+        hash_to_hex(hex_hash, raw_hash);
+
+        // Compress to zlib format (use compressBound to avoid overflow)
+        uLongf cap = compressBound(blob_len);
+        unsigned char *zbuf = malloc(cap);
+        z_stream s = (z_stream){0};
+        if (deflateInit(&s, Z_DEFAULT_COMPRESSION) != Z_OK) {
+            fprintf(stderr, "deflateInit failed\n");
+            free(blob);
+            free(zbuf);
+            return;
+        }
+
+        s.next_in  = blob;      s.avail_in  = (uInt)blob_len;
+        s.next_out = zbuf;      s.avail_out = cap;
+
+        int st = deflate(&s, Z_FINISH);
+        size_t zlen = s.total_out;
+        deflateEnd(&s);
+
+        char dir_path[256];
+        snprintf(dir_path, sizeof(dir_path), ".git/objects/%.2s", hex_hash);
+        // mkdir may already exist; that's fine
+        (void)mkdir(dir_path, 0755);
+
+        char write_path[256];
+        snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
+
+        printf("%s", hex_hash);
+     
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
         return 1;
