@@ -492,9 +492,6 @@ int main(int argc, char *argv[]) {
         printf("\n");
 
     } else if ((strcmp(command, "commit-tree") == 0)) {
-        // Surprisingly easier than previous two. It's just like hash-object but with a different type in header and body following the commit template seen with git cat-file -p HEAD (shows head commit).
-        // new -p old
-        // $ git commit-tree 5b825dc642cb6eb9a060e54bf8d69288fbee4904 -p 3b18e512dba79e4c8300dd08aeb37f8e728b8dad -m "Second commit"
         // $ ./your_program.sh commit-tree <tree_sha> -p <commit_sha> -m <message>
         char *tree_sha = argv[2];
         char *parent_sha = argv[4];
@@ -573,7 +570,30 @@ int main(int argc, char *argv[]) {
         char write_path[256];
         snprintf(write_path, sizeof(write_path), ".git/objects/%.2s/%.38s", hex_hash, hex_hash + 2);
 
-        printf("%s", hex_hash);
+        printf("%s\n", hex_hash);
+
+        FILE *fp = fopen(write_path, "wb");
+        if (!fp) {
+            perror("fopen");
+            free(blob);
+            free(zbuf);
+            return;
+        }
+
+        if (fwrite(zbuf, 1, zlen, fp) != zlen) {
+            fprintf(stderr, "fwrite failed\n");
+            fclose(fp);
+            free(blob);
+            free(zbuf);
+            return;
+        }
+
+        fclose(fp);
+
+        // Cleanup
+        free(blob);
+        free(zbuf);
+
      
     } else {
         fprintf(stderr, "Unknown command %s\n", command);
